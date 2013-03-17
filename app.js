@@ -3,7 +3,6 @@
  */
 var express = require('express');
 var winston = require('winston');
-var toposort = require('toposort')
 var Step = require('step');
 var bitcoin = require('bitcoinjs');
 var RpcClient = require('jsonrpc2').Client;
@@ -24,13 +23,11 @@ var fs = require('fs');
 var init = require('bitcoinjs/daemon/init');
 var config = init.getConfig();
 
-
 var app = module.exports = express.createServer();
 
 app.configure(function(){
-  app.set('views',__dirname + '/views')
-  app.set('view engine', 'jade')
-  app.set('view options', { layout: false })
+  app.set('views',__dirname + '/views');
+  app.set('view engine', 'jade'); app.set('view options', { layout: false });
   app.use(express.bodyParser());
   app.use(express.methodOverride());
   app.use(app.router);
@@ -42,15 +39,10 @@ app.get('/',function(req, res){
   res.render('home.jade',{})
 })
 
-/*
-* Get Txs that spends a specific tx (only one level)
-*/
-app.get('/json/tx/:txHash', function(req, res, next){
-  var hash = req.params.txHash;
-  console.log(hash)
+function get(dbname, res, hash) {
   db.open(function(err, db) {
-    db.collection('spentdb', function(err, collection) {
-      collection.find({prev_txhash:hash}).toArray(function(err, results) {
+    db.collection(dbname, function(err, collection) {
+      collection.find({txhash:hash}).toArray(function(err, results) {
         if (err) return console.log(err)
         db.close()
         res.write(JSON.stringify(results))
@@ -58,67 +50,91 @@ app.get('/json/tx/:txHash', function(req, res, next){
       });
     })
   })
-});
-
-
-/*
-* Get Tx tree that spends a specific tx
-*/
-app.get('/json/txSpentTree/:txHash', function(req, res, next){
-  var hashToSpend = req.params.txHash;
-  Step(
-    function openDB (){
-      db.open(this)
-    },
-    function(err, db) {
-      if (err) { console.log(err); return; }
-      db.collection('spentdb', this)
-    },
-    function (err,collection){
-      getTxChildren(collection,[],hashToSpend,this);
-    },
-    function finished(err,txTree){
-      if (err) return console.log(err)
-      console.log(txTree)
-      var sortedTx = toposort(txTree)
-      db.close()
-      res.write(JSON.stringify(sortedTx))
-      res.end()
-    }
-  )
-});
-
-
-/*
-* Recursion function for grabing spent Txs
-*/
-function getTxChildren(collection,txTree,hash,callback){
-  var currentHash = hash
-  Step(
-    function(){
-      collection.find({prev_txhash:currentHash}).toArray(this)
-    },
-    function getTx(err, results){
-      if (err) { console.log(err); return; }
-      var group = this.group();
-      console.log('phase: '+ currentHash +' outputs: '+results.length)
-      for (var i =  0; i < results.length; i++) {
-        var spendingHash = results[i].txhash
-        var hashToSpend = results[i].prev_txhash
-        txTree.push([hashToSpend,spendingHash])
-        getTxChildren(collection,txTree,spendingHash,group())
-      }
-    },
-    function finished(err,tx2Tree){
-      callback(err,txTree);
-    }
-  );
 }
+
+app.get('/json/tx/:txHash', function(req, res, next){
+  var hash = req.params.txHash;
+  console.log('spentdb: '+hash)
+  get('spentdb', res, hash);
+});
+
+app.get('/json/dc/:txHash', function(req, res, next){
+  var hash = req.params.txHash;
+  console.log('dtocoinbase: '+hash)
+  get('dtocoinbase', res, hash);
+});
+
+app.get('/json/shortestpath/:later/:earlier',function(req,res,next) {
+  var later = req.params.later;
+  var earlier = req.params.earlier;
+  //txs[n] = all nth generation ancestors of `later`
+  //txs[n][h] = descendant of transaction with hash h, if it is an nth generation ancestor
+  var txs = [{}];
+  txs[0][later] = null;
+  var newtxs = {};
+  var cbcount = txs.length;
+  var nextdone = false;
+  //Optional support for including the block of each transaction in the spentdb, optimizes code
+  //Gracefully degrades if such info is absent
+  var minblock = 0; 
+  db.open(function(err, db) {
+    db.collection('spentdb',function(err,collection) {
+      collection.find({txhash:earlier}).toArray(function(err, results) {
+        if (results.length != 0 && results[0].block) {
+          minblock = results[0].block;
+        }
+        next(0);
+      });
+    });
+    function next(depth) {
+      newtxs = {};
+      cbcount = 0;
+      for (var txhash in txs[depth]) {
+        cbcount++;
+        if (nextdone) break;
+        db.collection('spentdb',function(err,collection) {
+          collection.find({txhash:txhash}).toArray(function(err, results) {
+            if (results.length == 0) {
+              last(null,0); //Search over, return failure
+              return;
+            }
+            if (!results[0].block || results[0].block >= minblock) {
+              newtxs[results[0].prev_txhash] = results[0].txhash;
+            }
+            if (results[0].prev_txhash === earlier) {
+              //Found `earlier` as ancestors of later!
+              txs.push(newtxs);
+              last(results[0].prev_txhash,depth+1);
+              return;
+            }
+            cbcount --;
+            txs.push(newtxs);
+            if (cbcount === 0) { next(depth + 1); } //All callbacks complete, move to ancestors of generation depth+1
+          });
+        });
+      }
+    }
+    function last(tx,depth) {
+      if (!tx) { res.write("Path not found"); }
+      else {
+        o = [];
+        for (;depth >= 0; depth -= 1) {
+          o.push(tx);
+          tx = txs[depth][tx];
+        }
+        res.write(JSON.stringify(o));
+      }
+      db.close();
+      res.end();
+    }
+  });
+});
 
 var rpcClient = new RpcClient(config.jsonrpc.port, config.jsonrpc.host,
                               config.jsonrpc.username, config.jsonrpc.password);
 
 var rpc = rpcClient.connectSocket();
+
 rpc.on('connect', function () {
   var moduleSrc = fs.readFileSync(__dirname + '/query.js', 'utf8');
   rpc.call('definerpcmodule', ['explorer', moduleSrc], function (err) {
@@ -131,7 +147,9 @@ rpc.on('connect', function () {
     switch(arguments[0]){
       case 'create':
         console.log('starting to build spending db')
-        var genesis = '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f'  
+        console.log(arguments);
+        //var genesis = '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f'  
+        var genesis = '000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943' //Testnet
         db.open(function(err, db) {
           db.collection('lastpared', function(err, collection) {
             collection.find({name:'lastHash'}).toArray(function(err, results) {
@@ -145,6 +163,24 @@ rpc.on('connect', function () {
           })
         })
         break;
+      case 'dcoinbase':
+        console.log('starting to build spending db')
+        console.log(arguments);
+        //var genesis = '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f'  
+        var genesis = '000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943' //Testnet
+        db.open(function(err, db) {
+          db.collection('lastpared', function(err, collection) {
+            collection.find({name:'lastDCHash'}).toArray(function(err, results) {
+              if (err) return console.log(err);
+              //db.close()
+              if (results[0])
+                everParseDCoinbase(results[0].hash)
+              else
+                everParseDCoinbase(genesis)
+            });
+          })
+        })
+        break;
       case 'drop':
         dropCollection()
         break
@@ -153,8 +189,8 @@ rpc.on('connect', function () {
         console.log('drop: node app.js drop')
         console.log('create: node app.js create')
         if (!module.parent) {
-          app.listen(3333);
-          console.info("Express server listening on port " + 3333);
+          app.listen(3334);
+          console.info("Express server listening on port " + 3334);
         }
     }
   });
@@ -162,16 +198,22 @@ rpc.on('connect', function () {
 
 function dropCollection (argument) {
   db.open(function(err, db) {
-    db.collection('spentdb',function(err, collection) {
-      collection.remove({}, function(err, result) {
+    db.collection('dtocoinbase',function(err, collection) {
+      collection.remove({}, function(err,result) {
         if (err) return console.log(err);
-        console.log('COLLECTION REMOVED spentdb');
-        db.collection('lastpared',function(err, collection) {
+        console.log('COLLECTION REMOVED dtocoinbase');
+        db.collection('spentdb',function(err, collection) {
           collection.remove({}, function(err, result) {
             if (err) return console.log(err);
-            console.log('COLLECTION REMOVED lastpared');
-            db.close()
-            process.kill();
+            console.log('COLLECTION REMOVED spentdb');
+            db.collection('lastpared',function(err, collection) {
+              collection.remove({}, function(err, result) {
+                if (err) return console.log(err);
+                console.log('COLLECTION REMOVED lastpared');
+                db.close()
+                process.kill();
+              })
+            })
           })
         })
       })
@@ -179,6 +221,130 @@ function dropCollection (argument) {
   });
 }
 
+function everParseDCoinbase(blockHash){
+    var cbs, b;
+    var block_txs = {};
+    //Get block
+    var hash = Util.decodeHex(blockHash).reverse();
+    var hash64 = hash.toString('base64');
+    rpc.call('explorer.blockquery', [hash64], parseBlock);
+    //Get block txs
+    function parseBlock (err, block) {
+      if (err) return console.log(err);
+      b = block
+      console.log('grabbed block: '+block.block.height+' hash: '+block.block.hash+' txs count:'+block.txs.length)
+      cbs = block.txs.length;
+      block_txs = {};
+      block.txs.forEach(function (tx) {
+        hash = Util.decodeHex(tx.hash).reverse();
+        var hash64 = hash.toString('base64');
+        rpc.call('explorer.txquery', [hash64], getCollection)
+      })
+    }
+    //Populate the block_txs array with objects of the form
+    //txhash:{dist: (dist to coinbase or 99999999), 
+    //        pnts: (all parents of transaction),
+    //         pnt: (closest parent to coinbase if found)}
+    //It may not always be possible to fully fill the table
+    //if a tx's parents are in the same block, so some
+    //transactions will have pnt=null, dist=99999999
+    function getCollection (err,tx) {
+      if (err) return console.log(err);
+      db.collection('dtocoinbase', function (err, collection){
+        if (err) return console.log(err);
+          var innerercbs = tx.tx.in.length;
+          if (!block_txs[tx.tx.hash]) { block_txs[tx.tx.hash] = {dist: 99999999, pnts: []}; }
+          tx.tx.in.forEach(function(input){
+            block_txs[tx.tx.hash].pnts.push(input.prev_out.hash);
+            var closestParent;
+            collection.find({txhash:input.prev_out.hash}).toArray(function(err, results) {
+              if (err) return console.log(err);
+              console.log(input.prev_out.hash);
+              console.log(results);
+              if (results.length > 0) {
+                if (results[0].dtocoinbase + 1 < block_txs[tx.tx.hash].dist) {
+                  block_txs[tx.tx.hash].dist = results[0].dtocoinbase + 1;
+                  block_txs[tx.tx.hash].pnt = results[0].txhash;
+                }
+              }
+              if (input.prev_out.hash == "0000000000000000000000000000000000000000000000000000000000000000") {
+                  block_txs[tx.tx.hash].dist = 0;
+                  block_txs[tx.tx.hash].pnt = "";
+              }
+              innerercbs--;
+              if (innerercbs == 0) {
+                cbs --;
+                // All callbacks complete, move on to next step
+                if (cbs == 0) populateDb(collection);
+              }
+            });
+          })
+      })
+    }
+    //Fill in all remaining parents and distances
+    //Runtime is O(n^2) over length-n chains in a single block, 
+    //but the constant factor is Javascript operations and not
+    //database accesses, so it appears fast enough in practice,
+    //as such pathological cases are rare
+    function populateDb(collection) {
+      console.log('POPULATING DB');
+      for (var k in block_txs) console.log(k);
+      while (1) {
+        var done = true;
+        for (var k in block_txs) {
+          for (var i = 0; i < block_txs[k].pnts.length; i++) {
+            var p = block_txs[k].pnts[i];
+            if (block_txs[p] && block_txs[p].dist + 1 < block_txs[k].dist) {
+              block_txs[k].dist = block_txs[p].dist + 1;
+              block_txs[k].pnt = p;
+              console.log('NQP: '+k); //Print txs with parents in the same block out of curiosity
+              done = false;
+            }
+          }
+        }
+        if (done) break;
+        else console.log('NOT QUITE POPULATED');
+      }
+      console.log('POPULATED');
+      var toinsert = 0;
+      for (var k in block_txs) { toinsert++; }
+      for (var k in block_txs) {
+        var rec =
+          { dtocoinbase : block_txs[k].dist
+          , closestParent : block_txs[k].pnt
+          , txhash : k
+          , block : b.block.height
+          }
+        if (rec.dtocoinbase === 99999999) {
+          return console.log('ERROR Transaction found in blockchain with no parent. Txhash: '+k);
+        }
+        collection.insert(rec,function(err) {
+          if (err) return console.log(err);
+          toinsert--;
+          if (toinsert == 0) parseNextBlock();
+        })
+      }
+    }
+    function parseNextBlock (){
+      var block = b
+      if (block.nextBlock) {
+          db.collection('lastpared', function(err, collection) {
+            collection.update(
+                {name:'lastDCHash'}
+                , {name:'lastDCHash',hash:block.nextBlock.hash}
+                , {upsert:true}
+                , function(err, ress){
+                    if (err) return console.log(err);
+                    everParseDCoinbase(block.nextBlock.hash)
+                  }
+            );
+          })
+      } else {
+        db.close()
+        console.log('finished');
+      }
+    }
+}
 function everParseBlock(blockHash){
   Step(
     function getBlock() {
@@ -237,8 +403,16 @@ function everParseBlock(blockHash){
             );
           })
       } else {
+        db.close()
         console.log('finished');
       }
     }
   );
 }
+
+/*if (!module.parent) {
+  app.listen(3000);
+  winston.info("Express server listening on port " + 3000);
+}*/
+
+
