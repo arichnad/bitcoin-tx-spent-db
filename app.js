@@ -52,6 +52,48 @@ function get(dbname, res, hash) {
   })
 }
 
+//Returns outputs for every given input
+function bkMatchInputs(tx) {
+    //Special case coinbase, sole input gets matched to everything
+    var i=0;
+    if (tx.in[0].type == 'coinbase') { return [tx.out.map(function() { i++; return i-1; })] } 
+
+    //Everything else
+    var inputs = [];
+    var outputs = [0];
+    var matching = [];
+
+    // create prefix sums
+    tx.out.reduce(function(prev, curr) {
+        prev += parseFloat(curr.value);
+        outputs.push(prev);
+        return prev;
+    }, 0);
+    tx.in.reduce(function(prev, curr) {
+        prev += parseFloat(curr.value)
+        inputs.push(prev);
+        return prev;
+    }, 0);
+
+    // matching algorithm
+    var inIdx = 0; var outIdx = 0;
+    for(var inIdx = 0;
+        inIdx < inputs.length;
+        ++inIdx)
+    {
+        matching[inIdx] = []
+
+        for(; outIdx < outputs.length-1; outIdx++) {
+            matching[inIdx].push(outIdx);
+            if(outputs[outIdx+1] >= inputs[inIdx]) {
+                break;
+            }
+        }
+    }
+    
+    return matching;
+}
+
 app.get('/json/tx/:txHash', function(req, res, next){
   var hash = req.params.txHash;
   console.log('spentdb: '+hash)
@@ -236,13 +278,22 @@ function everParseDCoinbase(blockHash){
       cbs = block.txs.length;
       block_txs = {};
       block.txs.forEach(function (tx) {
+        //The order in which the keys appear when going through block_txs in a for
+        //loop is the order in which they are inserted. Hence, this ensures that
+        //transactions are ultimately processed in the given order, so if they are
+        //given in dependency order then the parent resolution loop will complete
+        //in exactly two cycles
+        for (var o = 0; o < tx.out.length; o++) {
+          block_txs[o+" "+tx.hash] = {dist: 99999999, pnts: []};
+        }
         hash = Util.decodeHex(tx.hash).reverse();
         var hash64 = hash.toString('base64');
         rpc.call('explorer.txquery', [hash64], getCollection)
       })
     }
     //Populate the block_txs array with objects of the form
-    //txhash:{dist: (dist to coinbase or 99999999), 
+    //(oindex + " " + txhash):
+    //       {dist: (dist to coinbase or 99999999), 
     //        pnts: (all parents of transaction),
     //         pnt: (closest parent to coinbase if found)}
     //It may not always be possible to fully fill the table
@@ -253,32 +304,37 @@ function everParseDCoinbase(blockHash){
       db.collection('dtocoinbase', function (err, collection){
         if (err) return console.log(err);
           var innerercbs = tx.tx.in.length;
-          if (!block_txs[tx.tx.hash]) { block_txs[tx.tx.hash] = {dist: 99999999, pnts: []}; }
-          tx.tx.in.forEach(function(input){
-            block_txs[tx.tx.hash].pnts.push(input.prev_out.hash);
-            var closestParent;
-            collection.find({txhash:input.prev_out.hash}).toArray(function(err, results) {
+          var bkMatching = bkMatchInputs(tx.tx);
+          for (var ind = 0; ind < tx.tx.in.length; ind++) {
+            var input = tx.tx.in[ind];
+            for (var j = 0; j < bkMatching[ind].length; j++) {
+              block_txs[bkMatching[ind][j]+" "+tx.tx.hash].pnts.push(input.prev_out.n+" "+input.prev_out.hash);
+            }
+            //The weird double-wrapped function is a closure to pass ind into the callback (as i)
+            collection.find({txhash:input.prev_out.hash,oindex:input.prev_out.n}).toArray(function(i) { return function(err, results) {
               if (err) return console.log(err);
-              console.log(input.prev_out.hash);
-              console.log(results);
-              if (results.length > 0) {
-                if (results[0].dtocoinbase + 1 < block_txs[tx.tx.hash].dist) {
-                  block_txs[tx.tx.hash].dist = results[0].dtocoinbase + 1;
-                  block_txs[tx.tx.hash].pnt = results[0].txhash;
+              for (var j = 0; j < bkMatching[i].length; j++) {
+                var oIndex = bkMatching[i][j];
+                console.log(oIndex+" "+tx.tx.hash+" "+tx.tx.out.length);
+                if (results.length > 0) {
+                  if (results[0].dtocoinbase + 1 < block_txs[oIndex+" "+tx.tx.hash].dist) {
+                    block_txs[oIndex+" "+tx.tx.hash].dist = results[0].dtocoinbase + 1;
+                    block_txs[oIndex+" "+tx.tx.hash].pnt = results[0].oindex+" "+results[0].txhash;
+                  }
                 }
-              }
-              if (input.prev_out.hash == "0000000000000000000000000000000000000000000000000000000000000000") {
-                  block_txs[tx.tx.hash].dist = 0;
-                  block_txs[tx.tx.hash].pnt = "";
-              }
+                if (input.prev_out.hash == "0000000000000000000000000000000000000000000000000000000000000000") {
+                    block_txs[oIndex+" "+tx.tx.hash].dist = 0;
+                    block_txs[oIndex+" "+tx.tx.hash].pnt = "";
+                }
+              } 
               innerercbs--;
               if (innerercbs == 0) {
                 cbs --;
                 // All callbacks complete, move on to next step
                 if (cbs == 0) populateDb(collection);
               }
-            });
-          })
+            };}(ind));
+          }
       })
     }
     //Fill in all remaining parents and distances
@@ -311,8 +367,10 @@ function everParseDCoinbase(blockHash){
       for (var k in block_txs) {
         var rec =
           { dtocoinbase : block_txs[k].dist
-          , closestParent : block_txs[k].pnt
-          , txhash : k
+          , closestParent : {txhash: block_txs[k].pnt.split(' ')[1],
+                             oindex: block_txs[k].pnt.split(' ')[0]}
+          , txhash : k.split(' ')[1]
+          , oindex : parseInt(k.split(' ')[0])
           , block : b.block.height
           }
         if (rec.dtocoinbase === 99999999) {
