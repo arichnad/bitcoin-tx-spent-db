@@ -39,10 +39,10 @@ app.get('/',function(req, res){
   res.render('home.jade',{})
 })
 
-function get(dbname, res, hash) {
+function get(dbname, res, query) {
   db.open(function(err, db) {
     db.collection(dbname, function(err, collection) {
-      collection.find({txhash:hash}).toArray(function(err, results) {
+      collection.find(query).toArray(function(err, results) {
         if (err) return console.log(err)
         db.close()
         res.write(JSON.stringify(results))
@@ -95,15 +95,40 @@ function bkMatchInputs(tx) {
 }
 
 app.get('/json/tx/:txHash', function(req, res, next){
-  var hash = req.params.txHash;
-  console.log('spentdb: '+hash)
-  get('spentdb', res, hash);
+  hash = Util.decodeHex(req.params.txHash).reverse();
+  var hash64 = hash.toString('base64');
+  rpc.call('explorer.txquery', [hash64], function (err, tx) {
+    if (err) return next(err);
+    res.write(JSON.stringify(tx.tx));
+    res.end();
+  });
+});
+
+
+// this is just for testing what whatnot
+app.get('/json/spendswhat/:txHash', function(req, res, next){
+    var hash = req.params.txHash;
+    console.log('spentdb: '+hash)
+    get('spentdb', res, {txhash: hash});
+});
+
+app.get('/json/whospends/:txHash', function(req, res, next){
+    var hash = req.params.txHash;
+    console.log('spentdb: '+hash)
+    get('spentdb', res, {prev_txhash: hash});
+});
+
+app.get('/json/whospends/:txHash/:oIndex', function(req, res, next){
+    var hash = req.params.txHash;
+    var oIndex = parseInt(req.params.oIndex, 10);
+    console.log('spentdb: '+hash)
+    get('spentdb', res, {prev_txhash: hash, prev_out_index: oIndex});
 });
 
 app.get('/json/dc/:txHash', function(req, res, next){
-  var hash = req.params.txHash;
-  console.log('dtocoinbase: '+hash)
-  get('dtocoinbase', res, hash);
+    var hash = req.params.txHash;
+    console.log('dtocoinbase: '+hash)
+    get('dtocoinbase', res, {txhash: hash});
 });
 
 app.get('/json/shortestpath/:later/:earlier',function(req,res,next) {
@@ -286,9 +311,16 @@ function everParseDCoinbase(blockHash){
         for (var o = 0; o < tx.out.length; o++) {
           block_txs[o+" "+tx.hash] = {dist: 99999999, pnts: []};
         }
-        hash = Util.decodeHex(tx.hash).reverse();
-        var hash64 = hash.toString('base64');
-        rpc.call('explorer.txquery', [hash64], getCollection)
+        //hash = Util.decodeHex(tx.hash).reverse();
+        //var hash64 = hash.toString('base64');
+	  try {
+        getCollection(null, tx);
+	  }
+	  catch (err) {
+	      console.log(err);
+	  }
+
+        //rpc.call('explorer.txquery', [hash64], getCollection)
       })
     }
     //Populate the block_txs array with objects of the form
@@ -303,28 +335,28 @@ function everParseDCoinbase(blockHash){
       if (err) return console.log(err);
       db.collection('dtocoinbase', function (err, collection){
         if (err) return console.log(err);
-          var innerercbs = tx.tx.in.length;
-          var bkMatching = bkMatchInputs(tx.tx);
-          for (var ind = 0; ind < tx.tx.in.length; ind++) {
-            var input = tx.tx.in[ind];
+          var innerercbs = tx.in.length;
+          var bkMatching = bkMatchInputs(tx);
+          for (var ind = 0; ind < tx.in.length; ind++) {
+            var input = tx.in[ind];
             for (var j = 0; j < bkMatching[ind].length; j++) {
-              block_txs[bkMatching[ind][j]+" "+tx.tx.hash].pnts.push(input.prev_out.n+" "+input.prev_out.hash);
+              block_txs[bkMatching[ind][j]+" "+tx.hash].pnts.push(input.prev_out.n+" "+input.prev_out.hash);
             }
             //The weird double-wrapped function is a closure to pass ind into the callback (as i)
             collection.find({txhash:input.prev_out.hash,oindex:input.prev_out.n}).toArray(function(i) { return function(err, results) {
               if (err) return console.log(err);
               for (var j = 0; j < bkMatching[i].length; j++) {
                 var oIndex = bkMatching[i][j];
-                console.log(oIndex+" "+tx.tx.hash+" "+tx.tx.out.length);
+                console.log(oIndex+" "+tx.hash+" "+tx.out.length);
                 if (results.length > 0) {
-                  if (results[0].dtocoinbase + 1 < block_txs[oIndex+" "+tx.tx.hash].dist) {
-                    block_txs[oIndex+" "+tx.tx.hash].dist = results[0].dtocoinbase + 1;
-                    block_txs[oIndex+" "+tx.tx.hash].pnt = results[0].oindex+" "+results[0].txhash;
+                  if (results[0].dtocoinbase + 1 < block_txs[oIndex+" "+tx.hash].dist) {
+                    block_txs[oIndex+" "+tx.hash].dist = results[0].dtocoinbase + 1;
+                    block_txs[oIndex+" "+tx.hash].pnt = results[0].oindex+" "+results[0].txhash;
                   }
                 }
                 if (input.prev_out.hash == "0000000000000000000000000000000000000000000000000000000000000000") {
-                    block_txs[oIndex+" "+tx.tx.hash].dist = 0;
-                    block_txs[oIndex+" "+tx.tx.hash].pnt = "";
+                    block_txs[oIndex+" "+tx.hash].dist = 0;
+                    block_txs[oIndex+" "+tx.hash].pnt = "";
                 }
               } 
               innerercbs--;
@@ -410,43 +442,36 @@ function everParseBlock(blockHash){
       var hash64 = hash.toString('base64');
       rpc.call('explorer.blockquery', [hash64], this)
     },
-    function parseBlock (err, block) {
-      if (err) return console.log(err);
-      this.b = block
+    function getCollection (err, block){
+	this.b = block;
+      txs = block.txs;
       console.log('grabbed block: '+block.block.height+' hash: '+block.block.hash+' txs count:'+block.txs.length)
-      var group = this.group();
-      block.txs.forEach(function (tx) {
-        hash = Util.decodeHex(tx.hash).reverse();
-        var hash64 = hash.toString('base64');
-        rpc.call('explorer.txquery', [hash64], group())
-      })
-    },
-    function getCollection (err,txs){
       if (err) return console.log(err);
-      var insertGroup = this.group();
+      var parallel = this.parallel;
       db.collection('spentdb', function (err, collection){
         if (err) return console.log(err);
         txs.forEach(function(tx){
           for (var i = 0; i < tx.tx.in.length; i++) {
-            var rec =
-              { prev_txhash : tx.tx.in[i].prev_out.hash
-              , prev_out_index : i
-              , txhash : tx.tx.hash
-              }
-            collection.update(
-                { prev_txhash : tx.tx.in[i].prev_out.hash
-                , prev_out_index : i
-                , txhash : tx.tx.hash
-                }
-                , rec
-                , {upsert:true}
-                , insertGroup()
-            );
+              if (tx.type == 'coinbase') break;
+	      var inp = tx.tx.in[i];
+              var rec =
+		  { prev_txhash : inp.prev_out.hash
+		    , prev_out_index : inp.prev_out.n
+		    , txhash : tx.tx.hash
+		  };
+              collection.update(
+                  { prev_txhash : inp.prev_out.hash
+                    , prev_out_index : inp.prev_out.n
+                  }
+                  , rec
+                  , {upsert:true}
+                  , parallel()
+              );
           };
         })
       })
     },
-    function parseNextBlock (err,results){
+    function parseNextBlock (err){
       var block = this.b
       if (block.nextBlock) {
           db.collection('lastpared', function(err, collection) {
