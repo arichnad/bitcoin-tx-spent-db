@@ -1,0 +1,20 @@
+<html>
+<body>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script src="colorer-b.js"></script>
+
+<p>Color definition(s): <input size='80'></input></p>
+<p>Transaction hash: <input id='txhash' size='64' value='b1586cd10b32f78795b86e9a3febe58dcb59189175fad884a7f4a6623b77486e'></input>
+<button onclick="showcurtx()">show</button
+</p>
+
+
+<div id='txbox'></div>
+
+
+<script>
+
+function showcurtx() {
+  getTransaction($('#txhash').val(), rendertx);
+}
+</script>
