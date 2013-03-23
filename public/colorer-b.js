@@ -168,82 +168,91 @@ function getColorByDefinition(txHash, outputIdx) {
 }
 
 function getColor(txHash, outputIdx, callback) {
-    color = 'Unknown';
 
-    // put initial transaction output in queue
-    queue = [{
-        txHash: txHash, 
-        index: outputIdx
-    }];
+   function Helper(hash, idx, cb) {
+        this.color = 'Unknown';
 
-    // start traversing
-    getColorHelper();
+        // put initial transaction output in queue
+        this.queue = [{
+            txHash: hash,
+            index: idx
+        }];
 
-    function getColorHelper() {
-        if(queue.length === 0) {
-            // we've visited everything and not found a conflict!
-            callback(color);
-            return;
-        }
-
-        var currentOutput = queue.pop();
-        var currentHash = currentOutput['txHash'];
-        var currentOutIdx = currentOutput['index'];   
+        this.callback = cb;
 
 
-        // is the current input colored by definition?
-        var c = getColorByDefinition(currentHash, currentOutIdx);
-        if(c !== 'Unknown') {
-            // if we've already got a provisional color 
-            if(color !== 'Unknown') {
-                // make sure the new color matches
-                if(color !== c) {
-                    callback('None');
-                    return;
-                } else {
-                    // it matches, keep searching
-                    getColorHelper();
-                }
-            } else {
-                // otherwise, this becomes the provisional color
-                color = c;
-
-                // and carry on with next iteration of loop
-                getColorHelper();
+        this.getColorHelper = function() {
+            if(this.queue.length === 0) {
+                // we've visited everything and not found a conflict!
+                this.callback(this.color);
+                return;
             }
-        }
 
-        // otherwise, get the transaction, and add 
-        // the matching inputs to the queue
-        else {
-            getTransaction(currentHash, function(tx) {
-                // is it coinbase, then we can't go any deeper, so it isn't colored
-                if(tx.in[0].type === 'coinbase') {
-                    callback('None');
-                } 
+            var currentOutput = this.queue.pop();
+            var currentHash = currentOutput['txHash'];
+            var currentOutIdx = currentOutput['index'];
 
-                else {
-                    // fix the in and out values to be integers rather than decimals
-                    fixData(tx);
 
-                    var matching = matchInputs(tx);
+            // is the current input colored by definition?
+            var color = getColorByDefinition(currentHash, currentOutIdx);
+            if(color !== 'Unknown') {
+                // if we've already got a provisional color
+                if(this.color !== 'Unknown') {
+                    // make sure the new color matches
+                    if(this.color !== color) {
+                        this.callback('None');
+                    } else {
+                        // it matches, keep searching
+                        this.getColorHelper();
+                    }
+                } else {
+                    // otherwise, this becomes the provisional color
+                    this.color = color;
 
-                    // add the matching inputs to the queue
-                    matching[currentOutIdx].reverse().forEach(function(inIdx) {
-                        var input = tx.in[inIdx];
-
-                        queue.push({
-                            txHash: input.prev_out.hash,
-                            index: input.prev_out.n
-                        });
-                    });
-
-                    // next round in 'loop'
-                    getColorHelper();
+                    // and carry on with next iteration of loop
+                    this.getColorHelper();
                 }
-            });
-        }
-    }
+            }
+
+            // otherwise, get the transaction, and add
+            // the matching inputs to the queue
+            else {
+                getTransaction(currentHash, function(tx) {
+                    // is it coinbase, then we can't go any deeper, so it isn't colored
+                    if(tx.in[0].type === 'coinbase') {
+                        this.callback('None');
+                    }
+
+                    else {
+                        // fix the in and out values to be integers rather than decimals
+                        fixData(tx);
+
+                        var matching = matchInputs(tx);
+
+
+                        // add the matching inputs to the queue
+                        matching[currentOutIdx].reverse().forEach(function(inIdx) {
+                            var input = tx.in[inIdx];
+
+                            this.queue.push({
+                                txHash: input.prev_out.hash,
+                                index: input.prev_out.n
+                            });
+                        }.bind(this));
+
+                        // next round in 'loop'
+                        this.getColorHelper();
+                    }
+                }.bind(this));
+            }
+        };
+
+        // start traversing
+        this.getColorHelper();
+    };
+
+
+    var helper = new Helper(txHash, outputIdx, callback);
 }
 
 
