@@ -94,7 +94,7 @@ function bkMatchInputs(tx) {
     return matching;
 }
 
-app.get('/json/tx/:txHash', function(req, res, next){
+app.get('/json/tx-v0/:txHash', function(req, res, next){
   hash = Util.decodeHex(req.params.txHash).reverse();
   var hash64 = hash.toString('base64');
   rpc.call('explorer.txquery', [hash64], function (err, tx) {
@@ -218,6 +218,12 @@ rpc.on('connect', function () {
         //var genesis = '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f'  
         var genesis = '000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943' //Testnet
         db.open(function(err, db) {
+	    db.collection('spentdb', function (err, collection){
+		if (err) return console.log(err);
+		collection.ensureIndex({prev_txhash: 1, prev_out_index:1});
+		collection.ensureIndex({prev_txhash: 1});
+	    });
+
           db.collection('lastpared', function(err, collection) {
             collection.find({name:'lastHash'}).toArray(function(err, results) {
               if (err) return console.log(err);
@@ -235,7 +241,7 @@ rpc.on('connect', function () {
         console.log(arguments);
         //var genesis = '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f'  
         var genesis = '000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943' //Testnet
-        db.open(function(err, db) {
+        db.open(function(err, db) { //TODO: indices
           db.collection('lastpared', function(err, collection) {
             collection.find({name:'lastDCHash'}).toArray(function(err, results) {
               if (err) return console.log(err);
@@ -443,21 +449,21 @@ function everParseBlock(blockHash){
       rpc.call('explorer.blockquery', [hash64], this)
     },
     function getCollection (err, block){
-	this.b = block;
+      if (err) return console.log(err);
+      this.b = block;
       txs = block.txs;
       console.log('grabbed block: '+block.block.height+' hash: '+block.block.hash+' txs count:'+block.txs.length)
-      if (err) return console.log(err);
       var parallel = this.parallel;
       db.collection('spentdb', function (err, collection){
         if (err) return console.log(err);
         txs.forEach(function(tx){
-          for (var i = 0; i < tx.tx.in.length; i++) {
-              if (tx.type == 'coinbase') break;
-	      var inp = tx.tx.in[i];
+          for (var i = 0; i < tx.in.length; i++) {
+	      var inp = tx.in[i];
+              if (inp.type == 'coinbase') break;
               var rec =
 		  { prev_txhash : inp.prev_out.hash
 		    , prev_out_index : inp.prev_out.n
-		    , txhash : tx.tx.hash
+		    , txhash : tx.hash
 		  };
               collection.update(
                   { prev_txhash : inp.prev_out.hash
@@ -470,9 +476,10 @@ function everParseBlock(blockHash){
           };
         })
       })
+      return 1;
     },
     function parseNextBlock (err){
-      var block = this.b
+      var block = this.b;
       if (block.nextBlock) {
           db.collection('lastpared', function(err, collection) {
             collection.update(

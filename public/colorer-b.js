@@ -7,7 +7,7 @@ function getTransaction(txHash, callback) {
 	callback(data);
     else
     $.ajax({
-	url: "http://178.33.22.12:3333/json/tx/" + txHash,
+	url: "http://178.33.22.12:3334/json/tx-v0/" + txHash,
 	dataType: "json"
     }).done(function (data) {
 	txdatacache[txHash] = data;
@@ -218,7 +218,7 @@ function getColor(txHash, outputIdx, callback) {
         else {
             getTransaction(currentHash, function(tx) {
                 // is it coinbase, then we can't go any deeper, so it isn't colored
-                if(tx.in[0].type === 'coinBase') {
+                if(tx.in[0].type === 'coinbase') {
                     callback('None');
                 } 
 
@@ -233,8 +233,8 @@ function getColor(txHash, outputIdx, callback) {
                         var input = tx.in[inIdx];
 
                         queue.push({
-                            txHash: input['prev_tx'], 
-                            index: input['outIndex']
+                            txHash: input.prev_out.hash,
+                            index: input.prev_out.n
                         });
                     });
 
@@ -323,7 +323,6 @@ function testAll() {
 
 // testAll();
 
-
 function rendertx(tx, spent) {
     
     if (spent === undefined) {
@@ -333,6 +332,11 @@ function rendertx(tx, spent) {
     }
 
     fixData(tx);
+
+    var ospenttx = {};
+    spent.forEach(function (o) {
+	ospenttx[o.prev_out_index] = o.txhash;
+    });
     
     var $box = $('#txbox');
     $box.empty();
@@ -345,20 +349,57 @@ function rendertx(tx, spent) {
 
     tx.in.forEach(function(i) {
 	var spanid = "col" + cereal; cereal ++;
-	$box.append("<p>value: " + i.value + ", color: <span id='" + spanid + "'>?</span></p>");
-	getColor(i.prev_tx, i.outIndex, function (color) {
-	    $("#" + spanid).text(color);
-	});
+
+	$p = $("<p>value: " + i.value + ", color: <span id='" + spanid + "'>?</span> </p>");
+
+	if (i.type != 'coinbase') {
+	    $a = $("<a href='#'>" + i.prev_out.hash + " " + i.prev_out.n + "</a>");
+	    (function (txhash) {
+		$a.click(function () { gotx(txhash); });
+	    })(i.prev_out.hash);
+	    $t = $("<small>Prev: </small>")
+	    $t.append($a);
+	    $p.append($t);
+	}
+	else $p.append("<small>Coinbase</small>");
+
+	$box.append($p);
+
+	if (i.type != 'coinbase')
+	    (function (spanid) {
+	     getColor(i.prev_out.hash, i.prev_out.n, function (color) {
+		 $("#" + spanid).text(color);
+	     });
+	    })(spanid);
+	else
+	    $("#" + spanid).text('None');
+
     });
 
     $box.append("<p><strong>Outputs:</strong></p>");
 
     tx.out.forEach(function(o, oi) {
 	var spanid = "col" + cereal; cereal ++;
-	$box.append("<p>value: " + o.value + ", color: <span id='" + spanid + "'>?</span></p>");
-	getColor(tx.hash, oi, function (color) {
-	    $("#" + spanid).text(color);
-	});
+
+	$p = $("<p>value: " + o.value + ", color: <span id='" + spanid + "'>?</span>   </p>");
+	if (ospenttx[oi]) {
+	    var txhash = ospenttx[oi];
+	    $a = $("<a href='#'>" + txhash + "</a>");
+	    (function (txhash) {
+		$a.click(function () { gotx(txhash); });
+	    })(txhash);
+	    $t = $("<small>Spent: </small>")
+	    $t.append($a);
+	    $p.append($t);
+	}
+	else $p.append("<small>Unspent</small>");
+
+	$box.append($p);
+	(function (spanid) {
+	    getColor(tx.hash, oi, function (color) {
+		$("#" + spanid).text(color);
+	    });
+	})(spanid);
     });
 }
 
