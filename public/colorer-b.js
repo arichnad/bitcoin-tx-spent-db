@@ -7,7 +7,7 @@ function getTransaction(txHash, callback) {
 	callback(data);
     else
     $.ajax({
-	url: "http://178.33.22.12:3334/json/tx-v0/" + txHash,
+	url: "/json/tx-v0/" + txHash,
 	dataType: "json"
     }).done(function (data) {
 	txdatacache[txHash] = data;
@@ -23,7 +23,7 @@ function getWhoSpends(txHash, outIndex, callback) {
     if (data) callback(data);
     else
     $.ajax({
-	url: "http://178.33.22.12:3334/json/whospends/" + txHash + "/" + outIndex,
+	url: "/json/whospends/" + txHash + "/" + outIndex,
 	dataType: "json"
     }).done(function (data) {
 	txspentcache[k] = data;
@@ -37,7 +37,7 @@ function getSpent(txHash, callback) {
     if (data) callback(data);
     else
     $.ajax({
-	url: "http://178.33.22.12:3334/json/whospends/" + txHash,
+	url: "/json/whospends/" + txHash,
 	dataType: "json"
     }).done(function (data) {
 	txspentcache[k] = data;

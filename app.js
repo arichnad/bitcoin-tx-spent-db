@@ -23,7 +23,7 @@ var fs = require('fs');
 var init = require('bitcoinjs/daemon/init');
 var config = init.getConfig();
 
-var app = module.exports = express.createServer();
+var app = module.exports = express();
 
 app.configure(function(){
   app.set('views',__dirname + '/views');
@@ -444,14 +444,14 @@ function everParseDCoinbase(blockHash){
 function everParseBlock(blockHash){
   Step(
     function getBlock() {
-      hash = Util.decodeHex(blockHash).reverse();
+      var hash = Util.decodeHex(blockHash).reverse();
       var hash64 = hash.toString('base64');
       rpc.call('explorer.blockquery', [hash64], this)
     },
     function getCollection (err, block){
       if (err) return console.log(err);
       this.b = block;
-      txs = block.txs;
+      var txs = block.txs;
       console.log('grabbed block: '+block.block.height+' hash: '+block.block.hash+' txs count:'+block.txs.length)
       var parallel = this.parallel;
       db.collection('spentdb', function (err, collection){
@@ -480,6 +480,7 @@ function everParseBlock(blockHash){
     },
     function parseNextBlock (err){
       var block = this.b;
+      this.b = null;
       if (block.nextBlock) {
           db.collection('lastpared', function(err, collection) {
             collection.update(
