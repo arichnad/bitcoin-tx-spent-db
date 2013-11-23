@@ -1,4 +1,5 @@
 var txdatacache = {};
+var coinbaseHash = '0000000000000000000000000000000000000000000000000000000000000000';
 
 
 function getTransaction(txHash, callback) {
@@ -7,7 +8,7 @@ function getTransaction(txHash, callback) {
 	callback(data);
     else
     $.ajax({
-	url: "/json/tx-v0/" + txHash,
+	url: "/rawtx/" + txHash,
 	dataType: "json"
     }).done(function (data) {
 	txdatacache[txHash] = data;
@@ -23,10 +24,10 @@ function getWhoSpends(txHash, outIndex, callback) {
     if (data) callback(data);
     else
     $.ajax({
-	url: "/json/whospends/" + txHash + "/" + outIndex,
+	url: "/spends/" + txHash,
 	dataType: "json"
     }).done(function (data) {
-	txspentcache[k] = data;
+	txspentcache[k] = data[outIndex];
 	callback(data);
     }).fail(function (what, thefuck) { alert('fail:' + what + ' ' + thefuck);});
 }
@@ -37,7 +38,7 @@ function getSpent(txHash, callback) {
     if (data) callback(data);
     else
     $.ajax({
-	url: "/json/whospends/" + txHash,
+	url: "/spends/" + txHash,
 	dataType: "json"
     }).done(function (data) {
 	txspentcache[k] = data;
@@ -71,7 +72,7 @@ function fixData(tx) {
     });
 
     tx.in.forEach(function(i) {
-        i.value = btcToSatoshi(i.value);
+        i.value = btcToSatoshi(i.prev_out.value);
     });
 }
 
@@ -219,7 +220,7 @@ function getColor(txHash, outputIdx, callback) {
             else {
                 getTransaction(currentHash, function(tx) {
                     // is it coinbase, then we can't go any deeper, so it isn't colored
-                    if(tx.in[0].type === 'coinbase') {
+                    if(tx.in[0].prev_out.hash === coinbaseHash) {
                         this.callback('None');
                     }
 
@@ -344,7 +345,7 @@ function rendertx(tx, spent) {
 
     var ospenttx = {};
     spent.forEach(function (o) {
-	ospenttx[o.prev_out_index] = o.txhash;
+	ospenttx[o[0]] = o[1];
     });
     
     var $box = $('#txbox');
@@ -361,7 +362,7 @@ function rendertx(tx, spent) {
 
 	$p = $("<p>value: " + i.value + ", color: <span id='" + spanid + "'>?</span> </p>");
 
-	if (i.type != 'coinbase') {
+	if (i.prev_out.hash != coinbaseHash) {
 	    $a = $("<a href='#'>" + i.prev_out.hash + " " + i.prev_out.n + "</a>");
 	    (function (txhash) {
 		$a.click(function () { gotx(txhash); });
@@ -374,7 +375,7 @@ function rendertx(tx, spent) {
 
 	$box.append($p);
 
-	if (i.type != 'coinbase')
+	if (i.prev_out.hash != coinbaseHash)
 	    (function (spanid) {
 	     getColor(i.prev_out.hash, i.prev_out.n, function (color) {
 		 $("#" + spanid).text(color);

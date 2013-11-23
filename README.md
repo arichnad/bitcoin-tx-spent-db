@@ -1,71 +1,9 @@
-Bitcoin-tx-spent-db
+Bitcoin-tx-spent-db-abe
 ===============
 
-Based on: https://github.com/bitcoinjs/node-bitcoin-explorer
+Based on: https://github.com/killerstorm/bitcoin-tx-spent-db
 
-This is a reverse of the bitcoin tx graph you can query which txs spends a certain output
+(which was based on: https://github.com/bitcoinjs/node-bitcoin-explorer)
 
-Installation in Ubuntu:
+Talks to bitcoin-abe to display color information.
 
-after fresh install
-
-    sudo apt-get update
-
-Dependencies
-
-    sudo apt-get install build-essential python2.7 pkg-config libssl-dev git mongodb-10gen
-
-Configure MongoDB
-    
-[Configuring Mongo on Ubuntu](http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/)
-
-Node v0.8.8
-
-    git clone git://github.com/joyent/node.git
-    cd node
-    git checkout v0.8.8
-    ./configure
-    make
-    sudo make install
-
-Install bitcoinJS:
-
-    sudo npm install -g bitcoinjs --unsafe-perm
-
-    mkdir /home/ubuntu/.bitcoinjs
-    cp /usr/local/lib/node_modules/bitcoinjs/daemon/settings.example.js /home/ubuntu/.bitcoinjs/settings.js
-
-Install Bitcoin-tx-spent-db:
-
-    cd ~
-
-    git clone git://github.com/0i0/bitcoin-tx-spent-db.git
-
-    cd Bitcoin-tx-spent-db/
-    sudo npm link bitcoinjs
-    sudo npm install
-
-    cp ~/bitcoinjs-color/node_modules/bitcoinjs/daemon/settings.example.js ~/bitcoinjs-color/node_modules/bitcoinjs/daemon/settings.js
-
-Edit ~/bitcoinjs-color/node_modules/bitcoinjs/daemon/settings.js
-Change the following:
-
-    cfg.jsonrpc.enable = true;
-    cfg.jsonrpc.password = "admin";
-
-This is for Amazon AWS to work on port 80
-
-    sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 3333
-
-Creating the DB
-
-    bitcoinjs start
-    node app.js create
-    
-Droping the DB
-
-    node app.js create
-    
-Running the query server
-
-    node app.js
