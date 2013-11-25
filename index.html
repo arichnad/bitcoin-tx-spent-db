@@ -14,11 +14,11 @@
 <script>
 
 function gotx(txhash) {
-  $('#txbox').empty();
-  $('#txhash').val(txhash);
-  showcurtx();
+    $('#txbox').empty();
+    $('#txhash').val(txhash);
+    showcurtx();
 }
 function showcurtx() {
-  getTransaction($('#txhash').val(), rendertx);
+    getTransaction($('#txhash').val(), rendertx);
 }
 </script>

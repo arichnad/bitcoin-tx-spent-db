@@ -5,14 +5,14 @@ var coinbaseHash = '000000000000000000000000000000000000000000000000000000000000
 function getTransaction(txHash, callback) {
     var data = txdatacache[txHash];
     if (data)
-	callback(data);
+        callback(data);
     else
     $.ajax({
-	url: "/rawtx/" + txHash,
-	dataType: "json"
+        url: "/rawtx/" + txHash,
+        dataType: "json"
     }).done(function (data) {
-	txdatacache[txHash] = data;
-	callback(data);
+        txdatacache[txHash] = data;
+        callback(data);
     }).fail(function (what, thefuck) { alert('fail:' + what + ' ' + thefuck);});
 }
 
@@ -24,11 +24,11 @@ function getWhoSpends(txHash, outIndex, callback) {
     if (data) callback(data);
     else
     $.ajax({
-	url: "/spends/" + txHash,
-	dataType: "json"
+        url: "/spends/" + txHash,
+        dataType: "json"
     }).done(function (data) {
-	txspentcache[k] = data[outIndex];
-	callback(data);
+        txspentcache[k] = data[outIndex];
+        callback(data);
     }).fail(function (what, thefuck) { alert('fail:' + what + ' ' + thefuck);});
 }
 
@@ -38,11 +38,11 @@ function getSpent(txHash, callback) {
     if (data) callback(data);
     else
     $.ajax({
-	url: "/spends/" + txHash,
-	dataType: "json"
+        url: "/spends/" + txHash,
+        dataType: "json"
     }).done(function (data) {
-	txspentcache[k] = data;
-	callback(data);
+        txspentcache[k] = data;
+        callback(data);
     }).fail(function (what, thefuck) { alert('fail:' + what + ' ' + thefuck);});
 }
 
@@ -336,16 +336,16 @@ function testAll() {
 function rendertx(tx, spent) {
     
     if (spent === undefined) {
-	return getSpent(tx.hash, function (spent) {
-	    rendertx(tx, spent);
-	});
+        return getSpent(tx.hash, function (spent) {
+            rendertx(tx, spent);
+        });
     }
 
     fixData(tx);
 
     var ospenttx = {};
     spent.forEach(function (o) {
-	ospenttx[o[0]] = o[1];
+        ospenttx[o[0]] = o[1];
     });
     
     var $box = $('#txbox');
@@ -358,58 +358,58 @@ function rendertx(tx, spent) {
     $box.append("<p><strong>Inputs:</strong></p>");
 
     tx.in.forEach(function(i) {
-	var spanid = "col" + cereal; cereal ++;
+        var spanid = "col" + cereal; cereal ++;
 
-	$p = $("<p>value: " + i.value + ", color: <span id='" + spanid + "'>?</span> </p>");
+        $p = $("<p>value: " + i.value + ", color: <span id='" + spanid + "'>?</span> </p>");
 
-	if (i.prev_out.hash != coinbaseHash) {
-	    $a = $("<a href='#'>" + i.prev_out.hash + " " + i.prev_out.n + "</a>");
-	    (function (txhash) {
-		$a.click(function () { gotx(txhash); });
-	    })(i.prev_out.hash);
-	    $t = $("<small>Prev: </small>")
-	    $t.append($a);
-	    $p.append($t);
-	}
-	else $p.append("<small>Coinbase</small>");
+        if (i.prev_out.hash != coinbaseHash) {
+            $a = $("<a href='#'>" + i.prev_out.hash + " " + i.prev_out.n + "</a>");
+            (function (txhash) {
+                $a.click(function () { gotx(txhash); });
+            })(i.prev_out.hash);
+            $t = $("<small>Prev: </small>")
+            $t.append($a);
+            $p.append($t);
+        }
+        else $p.append("<small>Coinbase</small>");
 
-	$box.append($p);
+        $box.append($p);
 
-	if (i.prev_out.hash != coinbaseHash)
-	    (function (spanid) {
-	     getColor(i.prev_out.hash, i.prev_out.n, function (color) {
-		 $("#" + spanid).text(color);
-	     });
-	    })(spanid);
-	else
-	    $("#" + spanid).text('None');
+        if (i.prev_out.hash != coinbaseHash)
+            (function (spanid) {
+             getColor(i.prev_out.hash, i.prev_out.n, function (color) {
+                 $("#" + spanid).text(color);
+             });
+            })(spanid);
+        else
+            $("#" + spanid).text('None');
 
     });
 
     $box.append("<p><strong>Outputs:</strong></p>");
 
     tx.out.forEach(function(o, oi) {
-	var spanid = "col" + cereal; cereal ++;
+        var spanid = "col" + cereal; cereal ++;
 
-	$p = $("<p>value: " + o.value + ", color: <span id='" + spanid + "'>?</span>   </p>");
-	if (ospenttx[oi]) {
-	    var txhash = ospenttx[oi];
-	    $a = $("<a href='#'>" + txhash + "</a>");
-	    (function (txhash) {
-		$a.click(function () { gotx(txhash); });
-	    })(txhash);
-	    $t = $("<small>Spent: </small>")
-	    $t.append($a);
-	    $p.append($t);
-	}
-	else $p.append("<small>Unspent</small>");
+        $p = $("<p>value: " + o.value + ", color: <span id='" + spanid + "'>?</span>   </p>");
+        if (ospenttx[oi]) {
+            var txhash = ospenttx[oi];
+            $a = $("<a href='#'>" + txhash + "</a>");
+            (function (txhash) {
+                $a.click(function () { gotx(txhash); });
+            })(txhash);
+            $t = $("<small>Spent: </small>")
+            $t.append($a);
+            $p.append($t);
+        }
+        else $p.append("<small>Unspent</small>");
 
-	$box.append($p);
-	(function (spanid) {
-	    getColor(tx.hash, oi, function (color) {
-		$("#" + spanid).text(color);
-	    });
-	})(spanid);
+        $box.append($p);
+        (function (spanid) {
+            getColor(tx.hash, oi, function (color) {
+                $("#" + spanid).text(color);
+            });
+        })(spanid);
     });
 }
 
