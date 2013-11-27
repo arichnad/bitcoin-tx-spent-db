@@ -3,20 +3,20 @@
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
 <script src="colorer-b.js"></script>
 
-<p>Transaction hash: <input id='txhash' size='64' value='' />
+<p>Transaction hash: <input id='transactionHash' size='64' value='' />
 <button onClick="showCurrentTransaction()">show</button>
 </p>
 
 
-<div id='txbox'></div>
+<div id='transactionBox'></div>
 
 
 
 <hr />
 <p>Add a color definition:</p>
-<p>Name: <input id='addname' size='32' value='' /></p>
-<p>Transaction hash: <input id='addtxhash' size='64' value='' /></p>
-<p>Output index: <input id='addoutputindex' size='4' value='0' /></p>
+<p>Name: <input id='addName' size='32' value='' /></p>
+<p>Transaction hash: <input id='addTransactionHash' size='64' value='' /></p>
+<p>Output index: <input id='addOutputIndex' size='4' value='0' /></p>
 <button onClick="addColorUI()">add</button>
 
 <div id='colorDescriptions'></div>
@@ -25,19 +25,19 @@
 
 <script>
 
-function goTransaction(txhash) {
-    $('#txbox').empty();
-    $('#txhash').val(txhash);
+function goTransaction(transactionHash) {
+    $('#transactionBox').empty();
+    $('#transactionHash').val(transactionHash);
     showCurrentTransaction();
     updateLinkBox();
 }
 function showCurrentTransaction() {
-    getTransaction($('#txhash').val(), rendertx);
+    getTransaction($('#transactionHash').val(), renderTransaction);
 }
 function addColorUI() {
-    name = $('#addname').val();
-    transactionHash = $('#addtxhash').val();
-    outputIndex = $('#addoutputindex').val();
+    name = $('#addName').val();
+    transactionHash = $('#addTransactionHash').val();
+    outputIndex = $('#addOutputIndex').val();
     addColor(name, transactionHash, outputIndex);
 }
 function addColor(name, transactionHash, outputIndex) {
