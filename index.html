@@ -2,25 +2,72 @@
 <body onLoad="updateLinkBox()">
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 <script src="colorer-b.js"></script>
+<style type="text/css">
+    .section {
+        border-bottom: 1px solid #ccc;
+    }
+    .box {
+        border: 1px solid black;
+        margin: 3px;
+        padding: 3px;
+        display: inline-block;
+    }
+    .input {
+    }
+    body {
+        font-family: Arial,sans-serif;
+        font-size: 13px;
+    }
+    label {
+        width: 200px;
+        text-align: right;
+        display: inline-block;
+        font-weight: bold;
+    }
+    button {
+        /* similar to blockchain.info */
+        color: white;
+        background-color: #d41;
+        background-image: -moz-linear-gradient(top, #c80, #c20);
+        border-color: rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        border-width: 1px;
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 1px 2px rgba(0, 0, 0, 0.05);
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 20px;
+        text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
+        text-decoration: none;
+        padding: 5px 11px;
+        margin-left: 200px;
+    }
+    button:hover {
+        background-image: none;
+    }
+    button:active {
+    }
+</style>
 
-<p>Transaction hash: <input id='transactionHash' size='64' value='' />
+<div class="section">
+
+<div class="input"><label>Transaction hash: </label><input id='transactionHash' size='64' value='' /></div>
 <button onClick="showCurrentTransaction()">show</button>
-</p>
 
 
-<div id='transactionBox'></div>
+<p><div class="box" id='transactionBox'>Transactions</div></p>
 
+</div>
+<div class="section">
 
-
-<hr />
 <p>Add a color definition:</p>
-<p>Name: <input id='addName' size='32' value='' /></p>
-<p>Transaction hash: <input id='addTransactionHash' size='64' value='' /></p>
-<p>Output index: <input id='addOutputIndex' size='4' value='0' /></p>
+<div class="input"><label>Name:</label><input id='addName' size='32' value='' placeholder='pick a name' autocomplete='off' /></div>
+<div class="input"><label>Transaction hash:</label><input id='addTransactionHash' placeholder='the transaction hash where the color was created' autocomplete='off' size='64' value='' /></div>
+<div class="input"><label>Output index:</label><input id='addOutputIndex' size='4' value='0' /></div>
 <button onClick="addColorUI()">add</button>
 
-<div id='colorDescriptions'></div>
+<p><div class="box" id='colorDescriptions'>Colors</div></p>
 
+</div>
 
 
 <script>
