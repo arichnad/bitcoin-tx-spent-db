@@ -1,24 +1,55 @@
 <html>
-<body>
+<body onLoad="updateLinkBox()">
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
 <script src="colorer-b.js"></script>
 
-<p>Transaction hash: <input id='txhash' size='64' value='b1586cd10b32f78795b86e9a3febe58dcb59189175fad884a7f4a6623b77486e' />
-<button onclick="showcurtx()">show</button>
+<p>Transaction hash: <input id='txhash' size='64' value='' />
+<button onClick="showCurrentTransaction()">show</button>
 </p>
 
 
 <div id='txbox'></div>
 
 
+
+<hr />
+<p>Add a color definition:</p>
+<p>Name: <input id='addname' size='32' value='' /></p>
+<p>Transaction hash: <input id='addtxhash' size='64' value='' /></p>
+<p>Output index: <input id='addoutputindex' size='4' value='0' /></p>
+<button onClick="addColorUI()">add</button>
+
+<div id='colorDescriptions'></div>
+
+
+
 <script>
 
-function gotx(txhash) {
+function goTransaction(txhash) {
     $('#txbox').empty();
     $('#txhash').val(txhash);
-    showcurtx();
+    showCurrentTransaction();
+    updateLinkBox();
 }
-function showcurtx() {
+function showCurrentTransaction() {
     getTransaction($('#txhash').val(), rendertx);
 }
+function addColorUI() {
+    name = $('#addname').val();
+    transactionHash = $('#addtxhash').val();
+    outputIndex = $('#addoutputindex').val();
+    addColor(name, transactionHash, outputIndex);
+}
+function addColor(name, transactionHash, outputIndex) {
+    colorDescriptor = getColorDescriptor(name, transactionHash, outputIndex);
+    defs[transactionHash] = {'outputIndex': outputIndex, 'name': name, 'unit': 1};
+    $('#colorDescriptions').append("<br />\n"+colorDescriptor);
+    goTransaction(transactionHash);
+}
+function updateLinkBox() {
+    $('#linkBox').val(document.location);
+}
 </script>
+
+</body>
+</html>

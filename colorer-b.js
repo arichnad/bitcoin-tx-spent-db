@@ -1,5 +1,6 @@
 var txdatacache = {};
 var coinbaseHash = '0000000000000000000000000000000000000000000000000000000000000000';
+var defs = {};
 
 
 function getTransaction(txHash, callback) {
@@ -118,54 +119,13 @@ function getMatching(txHash, callback) {
     });
 }
 
-function getColorByDefinition(txHash, outputIdx) {
-    // embed some color definitions here for now.
-    var defs = [{
-        "issues": [{
-            "outindex": 0, 
-            "txhash": "b1586cd10b32f78795b86e9a3febe58dcb59189175fad884a7f4a6623b77486e"
-        }], 
-        "style": "genesis", 
-        "name": "Blue", 
-        "unit": 1, 
-        "colorid": "8ec9668e393f2b7682daa2fd40eeee873c07c9ed"
-    },{
-        "metaprops": [
-            "name", 
-            "unit"
-        ], 
-        "metahash": "776d7100a4e22ca75d038d4e533b876f61ecc3a6", 
-        "name": "TESTcc", 
-        "colorid": "7452b90e22a0b758a048a3db9efa4fd361107350", 
-        "style": "genesis", 
-        "unit": 1, 
-        "issues": [{
-                "outindex": 0, 
-                "txhash": "c26166c7a387b85eca0adbb86811a9d122a5d96605627ad4125f17f6ddcbf89b"
-        }]
-    },{
-        "issues": [{
-            "outindex": 0, 
-            "txhash": "8f6c8751f39357cd42af97a67301127d497597ae699ad0670b4f649bd9e39abf"
-        }], 
-        "style": "genesis", 
-        "name": "Red", 
-        "unit": 1, 
-        "colorid": "f92734dea46ca06107244cc20e44276724846043"
-    }];
-
-    // simply compare the given hash and out index with those in the 'issues'
-    // field of each color definition. Return the 'name' field if we get a match.
-    for(var i = 0; i < defs.length; ++i) {
-        var issues = defs[i].issues[0];
-
-        if(issues.txhash === txHash && issues.outindex === outputIdx) {
-            return defs[i].name;
-        }
+function getColorByDefinition(txHash, outputIndex) {
+    var definition = defs[txHash];
+    
+    if(definition === undefined || definition.outputIndex != outputIndex) {
+        return 'Unknown';
     }
-
-    // if we've got here, then none of the definitions matched
-    return 'Unknown';
+    return definition.name;
 }
 
 function getColor(txHash, outputIdx, callback) {
@@ -319,6 +279,24 @@ function test(i, callback) {
 }
 
 function testAll() {
+    defs = {
+        "b1586cd10b32f78795b86e9a3febe58dcb59189175fad884a7f4a6623b77486e": {
+            "outputIndex": 0,
+            "name": "Blue",
+            "unit": 1
+        },
+        "c26166c7a387b85eca0adbb86811a9d122a5d96605627ad4125f17f6ddcbf89b" : {
+            "outputIndex": 0, 
+            "name": "TESTcc", 
+            "unit": 1
+        },
+        "8f6c8751f39357cd42af97a67301127d497597ae699ad0670b4f649bd9e39abf" : {
+            "outputIndex": 0, 
+            "name": "Red", 
+            "unit": 1
+        }
+    };
+
     var i = 0;
     testNext();
 
@@ -365,7 +343,7 @@ function rendertx(tx, spent) {
         if (i.prev_out.hash != coinbaseHash) {
             $a = $("<a href='#'>" + i.prev_out.hash + " " + i.prev_out.n + "</a>");
             (function (txhash) {
-                $a.click(function () { gotx(txhash); });
+                $a.click(function () { goTransaction(txhash); });
             })(i.prev_out.hash);
             $t = $("<small>Prev: </small>")
             $t.append($a);
@@ -396,7 +374,7 @@ function rendertx(tx, spent) {
             var txhash = ospenttx[oi];
             $a = $("<a href='#'>" + txhash + "</a>");
             (function (txhash) {
-                $a.click(function () { gotx(txhash); });
+                $a.click(function () { goTransaction(txhash); });
             })(txhash);
             $t = $("<small>Spent: </small>")
             $t.append($a);
@@ -411,5 +389,11 @@ function rendertx(tx, spent) {
             });
         })(spanid);
     });
+}
+
+function getColorDescriptor(name, transactionHash, outputIndex) {
+    //I don't know enough about the Deterministic Wallet Address Record and the
+    //coloring schemes to know what to put here.  using these values for now.
+    return [name, transactionHash, outputIndex].join(':');
 }
 
