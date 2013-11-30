@@ -100,6 +100,10 @@ function parseUrl() {
     params=getUrlParams();
     var transactionHash;
     for(param in params) {
+        if(param == 'goto') {
+            goTransaction(params[param]);
+            return;
+        }
         [name, transactionHash, outputIndex] = param.split(':');
         addColor(name, transactionHash, outputIndex);
     }
