@@ -397,3 +397,13 @@ function getColorDescriptor(name, transactionHash, outputIndex) {
     return [name, transactionHash, outputIndex].join(':');
 }
 
+function getColorDescriptors() {
+    var result = '';
+    for(key in defs) {
+        if(result !== '') result += '&';
+        def = defs[key];
+        result += getColorDescriptor(def.name, key, def.outputIndex);
+    }
+    return result;
+}
+

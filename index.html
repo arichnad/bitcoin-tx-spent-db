@@ -1,6 +1,7 @@
 <html>
-<body onLoad="updateLinkBox()">
+<body onLoad="parseUrl()">
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="geturlparams.js"></script>
 <script src="colorer-b.js"></script>
 <style type="text/css">
     .section {
@@ -69,32 +70,42 @@
 
 </div>
 
-
 <script>
 
 function goTransaction(transactionHash) {
     $('#transactionBox').empty();
     $('#transactionHash').val(transactionHash);
     showCurrentTransaction();
-    updateLinkBox();
 }
 function showCurrentTransaction() {
     getTransaction($('#transactionHash').val(), renderTransaction);
 }
 function addColorUI() {
     name = $('#addName').val();
+    name = name.replace(/[:&=?]/g, '');
     transactionHash = $('#addTransactionHash').val();
+    transactionHash = transactionHash.replace(/[^0-9a-zA-Z]/g, '');
     outputIndex = $('#addOutputIndex').val();
+    outputIndex = outputIndex.replace(/[^0-9]/g, '');
     addColor(name, transactionHash, outputIndex);
+    oldUrl = window.location.href.replace(/\?.*/, '');
+    window.location.href = oldUrl + '?' + getColorDescriptors();
 }
 function addColor(name, transactionHash, outputIndex) {
     colorDescriptor = getColorDescriptor(name, transactionHash, outputIndex);
     defs[transactionHash] = {'outputIndex': outputIndex, 'name': name, 'unit': 1};
     $('#colorDescriptions').append("<br />\n"+colorDescriptor);
-    goTransaction(transactionHash);
 }
-function updateLinkBox() {
-    $('#linkBox').val(document.location);
+function parseUrl() {
+    params=getUrlParams();
+    var transactionHash;
+    for(param in params) {
+        [name, transactionHash, outputIndex] = param.split(':');
+        addColor(name, transactionHash, outputIndex);
+    }
+    if(transactionHash !== undefined) {
+        goTransaction(transactionHash);
+    }
 }
 </script>
 
