@@ -95,16 +95,16 @@ function matchInputs(transaction) {
     }, 0);
 
     // matching algorithm
-    var inIdx = 0; var outIdx = 0;
-    for(var outIdx = 0; 
-        outIdx < outputs.length && inIdx < inputs.length-1; 
-        ++outIdx) 
+    var inIndex = 0; var outIndex = 0;
+    for(var outIndex = 0; 
+        outIndex < outputs.length && inIndex < inputs.length-1; 
+        ++outIndex) 
     {
-        matching[outIdx] = []      
+        matching[outIndex] = []      
 
-        for(; inIdx < inputs.length-1; inIdx++) {
-            matching[outIdx].push(inIdx);
-            if(inputs[inIdx+1] >= outputs[outIdx]) {                
+        for(; inIndex < inputs.length-1; inIndex++) {
+            matching[outIndex].push(inIndex);
+            if(inputs[inIndex+1] >= outputs[outIndex]) {                
                 break;
             }
         }
@@ -128,7 +128,7 @@ function getColorByDefinition(transactionHash, outputIndex) {
     return definition.name;
 }
 
-function getColor(transactionHash, outputIdx, callback) {
+function getColor(transactionHash, outputIndex, callback) {
 
    function Helper(hash, idx, cb) {
         this.color = 'Unknown';
@@ -151,11 +151,11 @@ function getColor(transactionHash, outputIdx, callback) {
 
             var currentOutput = this.queue.pop();
             var currentHash = currentOutput['transactionHash'];
-            var currentOutIdx = currentOutput['index'];
+            var currentOutIndex = currentOutput['index'];
 
 
             // is the current input colored by definition?
-            var color = getColorByDefinition(currentHash, currentOutIdx);
+            var color = getColorByDefinition(currentHash, currentOutIndex);
             if(color !== 'Unknown') {
                 // if we've already got a provisional color
                 if(this.color !== 'Unknown') {
@@ -192,8 +192,8 @@ function getColor(transactionHash, outputIdx, callback) {
 
 
                         // add the matching inputs to the queue
-                        matching[currentOutIdx].reverse().forEach(function(inIdx) {
-                            var input = transaction.in[inIdx];
+                        matching[currentOutIndex].reverse().forEach(function(inIndex) {
+                            var input = transaction.in[inIndex];
 
                             this.queue.push({
                                 transactionHash: input.prev_out.hash,
@@ -213,7 +213,7 @@ function getColor(transactionHash, outputIdx, callback) {
     };
 
 
-    var helper = new Helper(transactionHash, outputIdx, callback);
+    var helper = new Helper(transactionHash, outputIndex, callback);
 }
 
 
@@ -221,58 +221,58 @@ function test(i, callback) {
     var testVectors = [
         {
             transactionHash: '3a60b70d425405f3e45f9ed93c30ca62b2a97e692f305836af38a524997dd01d',
-            outputIdx: 0,
+            outputIndex: 0,
             color: 'None'
         },{
             transactionHash: 'c1d8d2fb75da30b7b61e109e70599c0187906e7610fe6b12c58eecc3062d1da5',
-            outputIdx: 0,
+            outputIndex: 0,
             color: 'Red'
         },{
             transactionHash: '8f6c8751f39357cd42af97a67301127d497597ae699ad0670b4f649bd9e39abf',
-            outputIdx: 0,
+            outputIndex: 0,
             color: 'Red'
         },{
             transactionHash: 'f50f29906ce306be3fc06df74cc6a4ee151053c2621af8f449b9f62d86cf0647',
-            outputIdx: 0,
+            outputIndex: 0,
             color: 'Blue'
         },{
             transactionHash: '7e40d2f414558be60481cbb976e78f2589bc6a9f04f38836c18ed3d10510dce5',
-            outputIdx: 0,
+            outputIndex: 0,
             color: 'Blue'
         },{
             transactionHash: '4b60bb49734d6e26d798d685f76a409a5360aeddfddcb48102a7c7ec07243498',
-            outputIdx: 0,
+            outputIndex: 0,
             color: 'Red'
         },{
             transactionHash: '342f119db7f9989f594d0f27e37bb5d652a3093f170de928b9ab7eed410f0bd1',
-            outputIdx: 0,
+            outputIndex: 0,
             color: 'None'
         },{
             transactionHash: 'bd34141daf5138f62723009666b013e2682ac75a4264f088e75dbd6083fa2dba',
-            outputIdx: 0,
+            outputIndex: 0,
             color: 'Blue'
         },{
             transactionHash: 'bd34141daf5138f62723009666b013e2682ac75a4264f088e75dbd6083fa2dba',
-            outputIdx: 1,
+            outputIndex: 1,
             color: 'None'
         },{
             transactionHash: '36af9510f65204ec5532ee62d3785584dc42a964013f4d40cfb8b94d27b30aa1',
-            outputIdx: 0,
+            outputIndex: 0,
             color: 'Red'
         },{
             transactionHash: '741a53bf925510b67dc0d69f33eb2ad92e0a284a3172d4e82e2a145707935b3e',
-            outputIdx: 0,
+            outputIndex: 0,
             color: 'Red'
         },{
             transactionHash: '741a53bf925510b67dc0d69f33eb2ad92e0a284a3172d4e82e2a145707935b3e',
-            outputIdx: 1,
+            outputIndex: 1,
             color: 'Red'
         }
     ];
 
     var test = testVectors[i];
 
-    getColor(test.transactionHash, test.outputIdx, function(color) {
+    getColor(test.transactionHash, test.outputIndex, function(color) {
         console.log(i, color, test.color);
         callback();
     });
