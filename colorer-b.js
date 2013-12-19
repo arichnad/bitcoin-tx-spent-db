@@ -119,12 +119,16 @@ function getMatching(transactionHash, callback) {
     });
 }
 
-function getColorByDefinition(transactionHash, outputIndex) {
-    var definition = defs[transactionHash];
-    
-    if(definition === undefined || definition.outputIndex != outputIndex) {
+function getColorByDefinition(checkTransactionHash, checkOutputIndex) {
+    var definition = defs[checkTransactionHash];
+    if(definition === undefined) {
         return 'Unknown';
     }
+    [coloringScheme, transactionHash, outputIndex, height] = definition.colorDescriptor.split(':');
+    if(outputIndex != checkOutputIndex) {
+        return 'Unknown';
+    }
+
     return definition.name;
 }
 
@@ -150,8 +154,8 @@ function getColor(transactionHash, outputIndex, callback) {
             }
 
             var currentOutput = this.queue.pop();
-            var currentHash = currentOutput['transactionHash'];
-            var currentOutIndex = currentOutput['index'];
+            var currentHash = currentOutput.transactionHash;
+            var currentOutIndex = currentOutput.index;
 
 
             // is the current input colored by definition?
@@ -281,17 +285,17 @@ function test(i, callback) {
 function testAll() {
     defs = {
         "b1586cd10b32f78795b86e9a3febe58dcb59189175fad884a7f4a6623b77486e": {
-            "outputIndex": 0,
+            'colorDescriptor': 'obc:b1586cd10b32f78795b86e9a3febe58dcb59189175fad884a7f4a6623b77486e:0:0',
             "name": "Blue",
             "unit": 1
         },
         "c26166c7a387b85eca0adbb86811a9d122a5d96605627ad4125f17f6ddcbf89b" : {
-            "outputIndex": 0, 
+            'colorDescriptor': 'obc:c26166c7a387b85eca0adbb86811a9d122a5d96605627ad4125f17f6ddcbf89b:0:0',
             "name": "TESTcc", 
             "unit": 1
         },
         "8f6c8751f39357cd42af97a67301127d497597ae699ad0670b4f649bd9e39abf" : {
-            "outputIndex": 0, 
+            'colorDescriptor': 'obc:8f6c8751f39357cd42af97a67301127d497597ae699ad0670b4f649bd9e39abf:0:0',
             "name": "Red", 
             "unit": 1
         }
@@ -391,10 +395,8 @@ function renderTransaction(transaction, spent) {
     });
 }
 
-function getColorDescriptor(name, transactionHash, outputIndex) {
-    //I don't know enough about the Deterministic Wallet Address Record and the
-    //coloring schemes to know what to put here.  using these values for now.
-    return [name, transactionHash, outputIndex].join(':');
+function getColorDescriptor(coloringScheme, transactionHash, outputIndex, height) {
+    return [coloringScheme, transactionHash, outputIndex, height].join(':');
 }
 
 function getColorDescriptors() {
@@ -402,7 +404,7 @@ function getColorDescriptors() {
     for(key in defs) {
         if(result !== '') result += '&';
         def = defs[key];
-        result += getColorDescriptor(def.name, key, def.outputIndex);
+        result += [def.name, def.colorDescriptor].join(',');
     }
     return result;
 }

@@ -87,13 +87,20 @@ function addColorUI() {
     transactionHash = transactionHash.replace(/[^0-9a-zA-Z]/g, '');
     outputIndex = $('#addOutputIndex').val();
     outputIndex = outputIndex.replace(/[^0-9]/g, '');
-    addColor(name, transactionHash, outputIndex);
+
+    var coloringScheme = 'obc'; //allow the user to set this?
+    var height = 0; //allow the user to set this?
+
+    addColor(name, getColorDescriptor(coloringScheme, transactionHash, outputIndex, height));
     oldUrl = window.location.href.replace(/\?.*/, '');
     window.location.href = oldUrl + '?' + getColorDescriptors();
 }
-function addColor(name, transactionHash, outputIndex) {
-    colorDescriptor = getColorDescriptor(name, transactionHash, outputIndex);
-    defs[transactionHash] = {'outputIndex': outputIndex, 'name': name, 'unit': 1};
+function addColor(name, colorDescriptor) {
+    if(colorDescriptor.split(':').length != 4) {
+        window.alert('incorrect color descriptor found');
+    }
+    [coloringScheme, transactionHash, outputIndex, height] = colorDescriptor.split(':');
+    defs[transactionHash] = {'colorDescriptor': colorDescriptor, 'name': name, 'unit': 1};
     $('#colorDescriptions').append("<br />\n"+colorDescriptor);
 }
 function parseUrl() {
@@ -104,8 +111,11 @@ function parseUrl() {
             goTransaction(params[param]);
             return;
         }
-        [name, transactionHash, outputIndex] = param.split(':');
-        addColor(name, transactionHash, outputIndex);
+        [name, colorDescriptor] = param.split(',');
+        if(param.split(',').length != 2) {
+            window.alert('incorrect parameter found');
+        }
+        addColor(name, colorDescriptor);
     }
     if(transactionHash !== undefined) {
         goTransaction(transactionHash);
