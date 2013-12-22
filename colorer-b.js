@@ -2,8 +2,44 @@ var transactionCache = {};
 var coinbaseHash = '0000000000000000000000000000000000000000000000000000000000000000';
 var defs = {};
 var transactionSpentCache = {};
+var colorSetHash = '';
 
 
+
+function loadDefs(names, colorSet) {
+    defs = {};
+    for(i=0;i<names.length;i++) {
+        addDef(names[i], colorSet[i]);
+    }
+}
+
+function addDef(name, colorDescriptor) {
+    [coloringScheme, transactionHash, outputIndex, height] = colorDescriptor.split(':');
+    defs[transactionHash] = {'colorDescriptor': colorDescriptor, 'name': name, 'unit': 1};
+    $('#colorDescriptors').append("<br />\n"+colorDescriptor);
+}
+
+function getColorSetFromServer(colorSetHash, callback) {
+    $.ajax({
+        url: "/get_color_set/" + colorSetHash,
+        dataType: "json"
+    }).done(function (data) {
+        loadDefs(data.names, data.color_set);
+        callback();
+    }).fail(function (jqXHR, textStatus, errorThrown) { alert('fail:' + jqXHR + ' ' + textStatus);});
+}
+
+function addColorSetToServer(callback) {
+    //the server fills in the heights and returns both the color_set and the color_set_hash.
+    $.ajax({
+        url: "/add_color_set/" + getColorSet() + '/' + getNames(),
+        dataType: "json"
+    }).done(function (data) {
+        colorSetHash = data.color_set_hash;
+        loadDefs(data.names, data.color_set);
+        callback();
+    }).fail(function (jqXHR, textStatus, errorThrown) { alert('fail:' + jqXHR + ' ' + textStatus);});
+}
 
 function getTransaction(transactionHash, callback) {
     var data = transactionCache[transactionHash];
@@ -300,6 +336,14 @@ function testAll() {
             "unit": 1
         }
     };
+    console.log(getColorSet() + '  /  ' + getNames());
+    addColorSetToServer(function () {
+        console.log(colorSetHash, '673b13966a0dc47bb71a7e270ec15f7df8addcf0166f492e08ae68c2275324ed');
+        console.log(getColorSet() + '  /  ' + getNames());
+    });
+    getColorSetFromServer('673b13966a0dc47bb71a7e270ec15f7df8addcf0166f492e08ae68c2275324ed', function() {
+        console.log(getColorSet() + '  /  ' + getNames());
+    });
 
     var i = 0;
     testNext();
@@ -399,12 +443,20 @@ function getColorDescriptor(coloringScheme, transactionHash, outputIndex, height
     return [coloringScheme, transactionHash, outputIndex, height].join(':');
 }
 
-function getColorDescriptors() {
+function getColorSet() {
     var result = '';
     for(key in defs) {
-        if(result !== '') result += '&';
-        def = defs[key];
-        result += [def.name, def.colorDescriptor].join(',');
+        if(result !== '') result += ',';
+        result += defs[key].colorDescriptor;
+    }
+    return result;
+}
+
+function getNames() {
+    var result = '';
+    for(key in defs) {
+        if(result !== '') result += ',';
+        result += defs[key].name;
     }
     return result;
 }

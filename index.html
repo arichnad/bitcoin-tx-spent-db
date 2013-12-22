@@ -66,7 +66,7 @@
 <div class="input"><label>Output index:</label><input id='addOutputIndex' size='4' value='0' /></div>
 <button onClick="addColorUI()">add</button>
 
-<p><div class="box" id='colorDescriptions'>Colors</div></p>
+<p><div class="box" id='colorDescriptors'>Colors</div></p>
 
 </div>
 
@@ -90,35 +90,28 @@ function addColorUI() {
 
     var coloringScheme = 'obc'; //allow the user to set this?
     var height = 0; //allow the user to set this?
-
-    addColor(name, getColorDescriptor(coloringScheme, transactionHash, outputIndex, height));
-    oldUrl = window.location.href.replace(/\?.*/, '');
-    window.location.href = oldUrl + '?' + getColorDescriptors();
-}
-function addColor(name, colorDescriptor) {
+    var colorDescriptor = getColorDescriptor(coloringScheme, transactionHash, outputIndex, height);
+    
     if(colorDescriptor.split(':').length != 4) {
         window.alert('incorrect color descriptor found');
     }
-    [coloringScheme, transactionHash, outputIndex, height] = colorDescriptor.split(':');
-    defs[transactionHash] = {'colorDescriptor': colorDescriptor, 'name': name, 'unit': 1};
-    $('#colorDescriptions').append("<br />\n"+colorDescriptor);
+    addDef(name, colorDescriptor);
+    $('#colorDescriptors').empty();
+    $('#colorDescriptors').append("Colors");
+    addColorSetToServer(function () {
+        oldUrl = window.location.href.replace(/\?.*/, '');
+        window.location.href = oldUrl + '?colorSetHash=' + colorSetHash;
+    });
 }
 function parseUrl() {
-    params=getUrlParams();
     var transactionHash;
-    for(param in params) {
-        if(param == 'goto') {
-            goTransaction(params[param]);
-            return;
-        }
-        [name, colorDescriptor] = param.split(',');
-        if(param.split(',').length != 2) {
-            window.alert('incorrect parameter found');
-        }
-        addColor(name, colorDescriptor);
+    params=getUrlParams();
+    if('colorSetHash' in params) {
+        getColorSetFromServer(params['colorSetHash'], function() {
+        });
     }
-    if(transactionHash !== undefined) {
-        goTransaction(transactionHash);
+    if('goto' in params) {
+        goTransaction(params['goto']);
     }
 }
 </script>
