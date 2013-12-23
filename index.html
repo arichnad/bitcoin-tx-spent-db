@@ -51,7 +51,7 @@
 
 <div class="section">
 
-<div class="input"><label>Transaction hash: </label><input id='transactionHash' size='64' value='' /></div>
+<div class="input"><label>Transaction hash: </label><input id='transactionHash' size='64' maxlength='64' value='' /></div>
 <button onClick="showCurrentTransaction()">show</button>
 
 
@@ -61,9 +61,9 @@
 <div class="section">
 
 <p>Add a color definition:</p>
-<div class="input"><label>Name:</label><input id='addName' size='32' value='' placeholder='pick a name' autocomplete='off' /></div>
-<div class="input"><label>Transaction hash:</label><input id='addTransactionHash' placeholder='the transaction hash where the color was created' autocomplete='off' size='64' value='' /></div>
-<div class="input"><label>Output index:</label><input id='addOutputIndex' size='4' value='0' /></div>
+<div class="input"><label>Name:</label><input id='addName' size='32' maxlength='64' value='' placeholder='pick a name' autocomplete='off' /></div>
+<div class="input"><label>Transaction hash:</label><input id='addTransactionHash' placeholder='the transaction hash where the color was created' autocomplete='off' size='55' maxlength='64' value='' /></div>
+<div class="input"><label>Output index:</label><input id='addOutputIndex' size='4' maxlength='4' value='0' /></div>
 <button onClick="addColorUI()">add</button>
 
 <p><div class="box" id='colorDescriptors'>Colors</div></p>
